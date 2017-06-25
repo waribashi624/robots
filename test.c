@@ -1,25 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef struct ascii{
+typedef struct Cell{
   int num;
-}Ascii;
+}CELL;
 
-typedef struct bob{
-  Ascii str;
-}Bob;
-
-void func(Bob** human){
-  (*human)->str.num = 8;
+void swap(CELL** a){
+  int b = (*a)->num;
 }
-  
-int main()
-{
-  Bob* human = (Bob*)malloc(sizeof(Bob));
-  
-  func(&human);
 
-  printf("%d\n",human->str.num);
-  free(human);
-  return 0;
+int main(void)
+{
+  CELL* cell = (CELL*)malloc(sizeof(CELL));
+  cell->num = 3;
+  swap(&cell);
+  
+  printf("%d\n",cell->num);
+  exit(EXIT_SUCCESS);
 }
