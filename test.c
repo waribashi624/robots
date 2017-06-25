@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define MAP_RANGE(x,y,MAX_X,MAX_Y) ((x) < 0 ? 0 : ((x) > (MAX_X) - 1 ? 0 : ((y) < 0 ? 0 : ((y) > (MAX_Y) - 1 ? 0 : 1))))
+#define _MOVE_RANGE(a,max) ((a) < 0 ? 0 : ((a) > (max) ? (max) : (a)))
 
 int main(void){
   int x,y,res;
@@ -11,13 +11,10 @@ int main(void){
     scanf("%d",&x);
     scanf("%d",&y);
     
-    res = MAP_RANGE(x,y,60,20);
+    x = _MOVE_RANGE(x,59);
+    y = _MOVE_RANGE(y,19);
   
-    if(res){
-      printf("true\n");
-    }else{
-      printf("else\n");
-    }
+    printf("x: %2d, y: %2d\n",x,y);
   }
   
   return 0;
