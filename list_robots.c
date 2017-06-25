@@ -8,9 +8,8 @@
 #define MAP_Y 20
 #define MAX_ENEM 40
 
-#define DEBUG 0
-
 #define MIN(x,y) ((x) < (y) ? (x) : (y))
+#define MAP_RANGE(x,y,MAX_X,MAX_Y) ((x) < 0 ? 0 : ((x) > (MAX_X) - 1 ? 0 : ((y) < 0 ? 0 : ((y) > (MAX_Y) - 1 ? 0 : 1))))
 
 extern char getChar(void);
 
@@ -39,6 +38,7 @@ int list_free(Enemy* root);
 void list_sort(Enemy* root);
 bool comp(Enemy* a,Enemy* b);
 void swap(Enemy* a,Enemy* b);
+void disp(Enemy* root,Player* player);
 
 int main(void)
 {
@@ -50,6 +50,8 @@ int main(void)
   Enemy* root = (Enemy*)malloc(sizeof(Enemy));
 
   player.level = 1;
+  player.vector.x = 0;
+  player.vector.y = 0;
   
   while(1){
     enemCount = MIN(player.level*5,MAX_ENEM);
@@ -75,6 +77,8 @@ int main(void)
     printf("x:%2d,y:%2d\n",pt->vector.x,pt->vector.y);
     pt = pt->next;
   }
+  
+  disp(root,&player);
 
   list_free(root);
   
@@ -150,11 +154,9 @@ void list_sort(Enemy* root)
   i = root->next;
     
   while(i != root){
-    printf("i\n");
     j = i;
     min = i;
     while(j != root){
-      printf("j\n");
       if(comp(j,min)){
         min = j;
       }
@@ -182,50 +184,57 @@ bool comp(Enemy* a,Enemy* b)
 
 void swap(Enemy* a,Enemy* b)
 {
-  printf("start_swap\n");
-  
   Enemy* pre = a->prev;
   Enemy* next = b->next;
   if(a == b){
     return;  
   }else if(a->next != b){
-  
-    printf("1-1\n");
-
     a->next->prev = b;
     b->next = a->next;
-
-    printf("1-2\n");
 
     b->prev->next = a;
     a->prev = b->prev;
 
-    printf("1-3\n");
-
     pre->next = b;
     next->prev = a;
-
-    printf("1-4\n");
 
     a->next = next;
     b->prev = pre;
   }else{
     
-    printf("2-1\n");
-    
     a->prev->next = b;
     b->next->prev = a;
-    
-    printf("2-2\n");
     
     a->prev = b;
     b->next = a;
     
-    printf("2-3\n");
-    
     a->next = next;
     b->prev = pre;
   }
-  printf("end_swap\n");
+}
 
+void disp(Enemy* root,Player* player)
+{
+  int horiz,verti;
+  Enemy* pt = root->next;
+  
+  for(verti = -1;verti <= MAP_Y;verti++){
+    for(horiz = -1;horiz <= MAP_X;horiz++){
+      if(!MAP_RANGE(horiz,verti,MAP_X,MAP_Y)){
+          printf("#");
+      }else if(pt->vector.x == horiz && pt->vector.y == verti){
+        if(pt->scrap == true){
+          printf("O");
+        }else{
+          printf("E");
+        }
+        pt = pt->next;
+      }else if(player->vector.x == horiz && player->vector.y == verti){
+        printf("@");
+      }else{
+        printf(" ");
+      }
+    }
+    printf("\n");
+  }
 }
