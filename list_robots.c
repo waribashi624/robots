@@ -10,6 +10,13 @@
 #define MAP_Y 20
 #define MAX_ENEM 40
 
+#define END 0
+#define TELEPORT 1
+
+#define DEAD_END 0
+#define LEVEL_UP 1
+#define NONE -1
+
 #define _MIN(x,y) ((x) < (y) ? (x) : (y))
 #define _MAP_RANGE(x,y,MAX_X,MAX_Y) ((x) < 0 ? 0 : ((x) > (MAX_X) - 1 ? 0 : ((y) < 0 ? 0 : ((y) > (MAX_Y) - 1 ? 0 : 1))))
 #define _MOVE_RANGE(a,max) ((a) < 0 ? 0 : ((a) > (max) ? (max) : (a)))
@@ -42,32 +49,31 @@ void list_sort(Enemy* root);
 bool comp(Enemy* a,Enemy* b);
 void swap(Enemy* a,Enemy* b);
 void disp(Enemy* root,Player* player);
-bool keysense(Player* player);
+int keysense(Player* player);
+void enemy_move(Enemy* root, Player* player);
+void teleport(Enemy* rppt,Player* player);
+int survive_check(Enemy* root,Player* player);
+int clear_check(Enemy* root,Player* player);
+Enemy* level_up(Enemy* root,Player* player);
 
 int main(void)
 {
   srand((unsigned)time(NULL));
 
-  bool endflag = false;
+  int flag = NONE;
   int enemCount = 0,i;
   Player player;
   Enemy* pt;
   Enemy* root = (Enemy*)malloc(sizeof(Enemy));
+  root->vector.x = 65535;
+  root->vector.y = 65535;
 
   init_player(&player);
 
-  while(1){
-    enemCount = _MIN(player.level*5,MAX_ENEM);
-    create_enemy(root,enemCount);
-    break;
-  }
+  enemCount = _MIN(player.level*5,MAX_ENEM);
+  create_enemy(root,enemCount);
 
-  pt = root->next;
-
-  while(pt != root){
-    printf("x:%2d,y:%2d\n",pt->vector.x,pt->vector.y);
-    pt = pt->next;
-  }
+  list_sort(root);
 
   initscr();
   noecho();
@@ -78,18 +84,43 @@ int main(void)
 
   i = 0;
 
-  while(i < 10){
-    list_sort(root);
+
+  while(1){
     clear();
     beep();
     disp(root,&player);
     refresh();
-    i += keysense(&player);
+    flag= keysense(&player);
+
+    if(flag == TELEPORT){
+      teleport(root,&player);
+      flag = NONE;
+    }else if(flag == END){
+      break;
+    }
+    flag = NONE;
+    enemy_move(root,&player);
+    list_sort(root);
+    survive_check(root,&player);
+    flag = clear_check(root,&player);
+    if(flag == DEAD_END){
+      break;
+    }else if(flag == LEVEL_UP){
+      root = level_up(root,&player);
+    }
   }
   endwin();
 
   list_free(root);
-  printf("i:%d\n",i);
+
+  pt = root->next;
+
+  /*while(pt != root){
+    printf("x:%2d,y:%2d\n",pt->vector.x,pt->vector.y);
+    pt = pt->next;
+  }*/
+
+  printf("score: %3d\n",player.score);
   exit(EXIT_SUCCESS);
 }
 
@@ -101,8 +132,6 @@ void init_player(Player* player)
   player->score = 0;
   player->alive = true;
 }
-
-
 
 void create_enemy(Enemy* root,int enemCount)
 {
@@ -229,10 +258,13 @@ void disp(Enemy* root,Player* player)
       if(!_MAP_RANGE(horiz,verti,MAP_X,MAP_Y)){
           printw("#");
       }else if(pt->vector.x == horiz && pt->vector.y == verti){
-        if(pt->scrap == true){
-          printw("O");
-        }else{
+        if(pt->scrap == false){
           printw("E");
+        }else{
+          printw("O");
+        }
+        while(pt->next->vector.x == pt->vector.x && pt->next->vector.y == pt->vector.y){
+          pt = pt->next;
         }
         pt = pt->next;
       }else if(player->vector.x == horiz && player->vector.y == verti){
@@ -243,39 +275,188 @@ void disp(Enemy* root,Player* player)
     }
     printw("\n");
   }
+
+  printw("\n\n\n");
+  pt = root->next;
+
+  while(pt != root){
+    printw("x:%2d,y:%2d\n",pt->vector.x,pt->vector.y);
+    pt = pt->next;
+  }
 }
 
-bool keysense(Player* player)
+int keysense(Player* player)
 {
   int c = -1;
+  int x = player->vector.x;
+  int y = player->vector.y;
 
   while(c == -1){
     c = getch();
     switch(c){
-      case KEY_LEFT:
-        player->vector.x = _MOVE_RANGE(player->vector.x - 1,MAP_X-1);
+      case '1':
+        x = _MOVE_RANGE(x-1,MAP_X-1);
+        y = _MOVE_RANGE(y+1,MAP_Y-1);
         break;
-      case KEY_RIGHT:
-        player->vector.x = _MOVE_RANGE(player->vector.x + 1,MAP_X-1);
+      case '2':
+        y = _MOVE_RANGE(y+1,MAP_Y-1);
         break;
-      case KEY_UP:
-        player->vector.y = _MOVE_RANGE((player->vector.y) - 1,MAP_Y-1);
+      case '3':
+        x = _MOVE_RANGE(x+1,MAP_X-1);
+        y = _MOVE_RANGE(y+1,MAP_Y-1);
         break;
-      case KEY_DOWN:
-        player->vector.y = _MOVE_RANGE((player->vector.y) + 1,MAP_Y-1);
+      case '4':
+        x = _MOVE_RANGE(x-1,MAP_X-1);
+        break;
+      case '6':
+        x = _MOVE_RANGE(x+1,MAP_X-1);
+        break;
+      case '7':
+        x = _MOVE_RANGE(x-1,MAP_X-1);
+        y = _MOVE_RANGE(y-1,MAP_Y-1);
+        break;
+      case '8':
+        y = _MOVE_RANGE(y-1,MAP_Y-1);
+        break;
+      case '9':
+        x = _MOVE_RANGE(x+1,MAP_X-1);
+        y = _MOVE_RANGE(y-1,MAP_Y-1);
         break;
       case ' ':
-      /*��?レポ�?�ト�?�場合�?�処��?を書��?てください*/
+        return TELEPORT;
         break;
       case '0':
         break;
-      case '1':
-        return true;
+      case '+':
+        return END;
         break;
       default:
         c = -1;
         break;
     }
   }
-  return false;
+
+  player->vector.x = x;
+  player->vector.y = y;
+  return NONE;
+}
+
+void enemy_move(Enemy* root,Player* player)
+{
+
+  Enemy* pt = root->next;
+
+  while(pt != root){
+    if(pt->scrap == false){
+      if(pt->vector.x < player->vector.x){
+        (pt->vector.x)++;
+      }else if(pt->vector.x > player->vector.x){
+        (pt->vector.x)--;
+      }
+
+      if(pt->vector.y < player->vector.y){
+        (pt->vector.y)++;
+      }else if(pt->vector.y > player->vector.y){
+        (pt->vector.y)--;
+      }
+    }
+    pt = pt->next;
+  }
+}
+
+void teleport(Enemy* root,Player* player)
+{
+  Enemy* pt = root->next;
+  int x = 0,y = 0;
+  int i;
+
+  int vect = rand()%(MAP_X*MAP_Y);
+
+  for(i = 0;i <= vect;i++){
+    if(pt->vector.x == x && pt->vector.y == y){
+      i--;
+      pt = pt->next;
+    }
+    x++;
+    if(x%MAP_X == 0){
+      x = 0;y++;
+    }
+  }
+
+  player->vector.x = x;
+  player->vector.y = y;
+}
+
+int survive_check(Enemy* root,Player* player)
+{
+
+  Enemy* pt = root->next;
+  while(pt->next != root){
+    if(pt->vector.y == pt->next->vector.y){
+      if(pt->vector.x == pt->next->vector.x){
+        if(pt->scrap == false){
+          pt->scrap = true;
+          (player->score)++;
+        }
+        if(pt->next->scrap == false){
+          pt->next->scrap = true;
+          (player->score)++;
+        }
+      }
+    }
+
+    if(pt->vector.x == player->vector.x){
+      if(pt->vector.y == player->vector.y){
+        player->alive = false;
+      }
+    }
+    pt = pt->next;
+  }
+
+  if(pt->vector.x == player->vector.x){
+    if(pt->vector.y == player->vector.y){
+      player->alive = false;
+    }
+  }
+}
+
+int clear_check(Enemy* root,Player* player)
+{
+  bool enem_flag = true;
+  Enemy* pt = root->next;
+
+  while(pt != root){
+    if(pt->scrap == false)enem_flag =  false;
+    pt = pt->next;
+  }
+
+  if(player->alive == false){
+    return DEAD_END;
+  }else if(enem_flag == true){
+    return LEVEL_UP;
+  }else{
+    return NONE;
+  }
+}
+
+Enemy* level_up(Enemy* root,Player* player)
+{
+  int enemCount;
+
+  player->score += 50*player->level;
+
+  (player->level)++;
+  list_free(root);
+
+  root = (Enemy*)malloc(sizeof(Enemy));
+  root->vector.x = 65535;
+  root->vector.y = 65535;
+
+  enemCount = _MIN(player->level*5,MAX_ENEM);
+
+  create_enemy(root,enemCount);
+
+  list_sort(root);
+
+  return root;
 }
